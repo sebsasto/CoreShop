@@ -14,14 +14,29 @@ namespace CoreShop\Behat\Context\Hook;
 
 use Behat\Behat\Context\Context;
 use Pimcore\Cache;
+use Pimcore\Event\DataObjectEvents;
 use Pimcore\Model\DataObject;
 use Pimcore\Model\DataObject\ClassDefinition;
 use Pimcore\Model\DataObject\Fieldcollection;
 use Pimcore\Model\DataObject\Listing;
 use Pimcore\Model\DataObject\Objectbrick;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 final class PimcoreDaoContext implements Context
 {
+    /**
+     * @var EventDispatcherInterface
+     */
+    private $eventDispatcher;
+
+    /**
+     * @param EventDispatcherInterface $eventDispatcher
+     */
+    public function __construct(EventDispatcherInterface $eventDispatcher)
+    {
+        $this->eventDispatcher = $eventDispatcher;
+    }
+
     /**
      * @BeforeScenario
      */
@@ -38,9 +53,13 @@ final class PimcoreDaoContext implements Context
         $list->setCondition('o_id <> 1');
         $list->load();
 
+        $this->eventDispatcher->removeListener(DataObjectEvents::PRE_DELETE, [\Pimcore::getContainer()->get('coreshop.listener.customer_odrer_deletion'), 'checkCustomerOrdersBeforeDeletion']);
+
         foreach ($list->getObjects() as $obj) {
             $obj->delete();
         }
+
+        $this->eventDispatcher->addListener(DataObjectEvents::PRE_DELETE, [\Pimcore::getContainer()->get('coreshop.listener.customer_odrer_deletion'), 'checkCustomerOrdersBeforeDeletion']);
     }
 
     /**
